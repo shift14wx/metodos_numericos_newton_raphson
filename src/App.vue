@@ -4,7 +4,8 @@
       app
       color="primary"
       dark
-    ></v-app-bar>
+      class="text-center"
+    >Newton Raphson</v-app-bar>
 
     <v-main dark>
       <newton-raphson/>
