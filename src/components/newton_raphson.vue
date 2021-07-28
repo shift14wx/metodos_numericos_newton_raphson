@@ -2,7 +2,7 @@
   <v-container>
     <v-row>
       <v-col>
-        <v-form v-model="form">
+        <v-form v-model="form" ref="form">
           <v-card>
             <v-card-title>Calcular</v-card-title>
             <v-card-text>
@@ -15,22 +15,41 @@
                     :prepend-inner-icon="'mdi-function'"
                     :rules="rules"
                 />
-                <v-text-field
-                    v-model="tolerance"
-                    outlined
-                    placeholder="Ingrese la tolerancia"
-                    label="Tolerancia"
-                    type="number"
-                    :prepend-inner-icon="'mdi-circle-medium'"
-                    :rules="rules"
-                />
+                <v-row>
+                  <v-col cols="6">
+                    <v-text-field
+                        v-model="variable"
+                        outlined
+                        placeholder="Ingrese la variable a sustituir en función"
+                        label="Variable en función"
+                        type="text"
+                        :prepend-inner-icon="'mdi-circle-medium'"
+                        :rules="rules"
+                    />
+                  </v-col>
+                  <v-col cols="6">
+                    <v-text-field
+                        v-model="tolerance"
+                        outlined
+                        placeholder="Ingrese la tolerancia"
+                        label="Tolerancia"
+                        type="number"
+                        :prepend-inner-icon="'mdi-circle-medium'"
+                        :rules="[
+                        v => !!v || 'Este campo es necesario',
+                        v => parseFloat(v) > 0.0 || 'Esta campo no puede ser negativo'
+                        ]"
+                    />
+                  </v-col>
+                </v-row>
+
                 <v-row>
                   <v-col cols="4">
                     <v-text-field
                         v-model="limiteInferior"
                         outlined
-                        placeholder="Ingrese el limite inferior"
-                        label="Limite Inferior"
+                        placeholder="Ingrese el limite inferior (X inicial para calcular la raiz)"
+                        label="Limite Inferior (X inicial para calcular la raiz)"
                         type="number"
                         :prepend-inner-icon="'mdi-arrow-down-bold'"
                         :rules="rules"
@@ -56,7 +75,10 @@
                         label="Incremento"
                         type="number"
                         :prepend-inner-icon="'mdi-plus'"
-                        :rules="rules"
+                        :rules="[
+                        v => !!v || 'Este campo es necesario',
+                        v => parseFloat(v) > 0.0 || 'Esta campo no puede ser negativo'
+                        ]"
                     />
                   </v-col>
                 </v-row>
@@ -85,10 +107,14 @@
           </v-tab>
 
           <v-tab href="#tab-1">
-            Tabla de valores
+            Calcular Raiz
             <v-icon>mdi-table</v-icon>
           </v-tab>
 
+          <v-tab href="#tab-2">
+            Tabla de valores
+            <v-icon>mdi-table</v-icon>
+          </v-tab>
         </v-tabs>
 
         <v-tabs-items v-model="tab">
@@ -102,6 +128,8 @@
               <v-card-text>
                 <div id="plot" v-if="i===0"></div>
 
+                <tabla v-if="i===1 && valores" v-model="valores"/>
+                <tabla2 v-if="i===2 && valoresMedios" v-model="valoresMedios"/>
 
               </v-card-text>
             </v-card>
@@ -115,17 +143,22 @@
 <script>
 import {compile, range, derivative, abs, evaluate} from 'mathjs';
 import {newPlot} from 'plotly.js';
+import Tabla from "./tabla";
+import Tabla2 from "./tabla2";
 
 export default {
+  components: {Tabla2, Tabla},
   data() {
     return {
       expresion: "x^3-2x-5",
       tab: null,
-      tolerance: 0.01,
-      limiteInferior: -3,
-      limiteSuperior: 3,
-      incremento: 0.1,
+      tolerance:null,
+      limiteInferior: null,
+      limiteSuperior: null,
+      incremento: null,
       variable:"x",
+      valores:null,
+      valoresMedios:null,
       form: false,
       rules: [
         v => !!v || 'Este campo es necesario',
@@ -136,17 +169,33 @@ export default {
           icono: ""
         },
         {
-          titulo: "Tabla",
+          titulo: "Calcular raiz",
           icono: ""
         },
         {
-          titulo: "Otra tab",
+          titulo: "Tabla de valores",
           icono: ""
         }
-      ]
+      ],
     }
   },
   methods: {
+    calcular_entre_2_cifras(){
+      let datos = [];
+      let valor=0.0;
+      let i = parseFloat(this.limiteInferior);
+
+      while (parseFloat(i)<= parseFloat(this.limiteSuperior)){
+        console.log(i);
+        valor = this.evaluate_expression(this.expresion,i);
+        i+=parseFloat(this.incremento);
+        datos.push([i,valor]);
+      }
+
+
+      this.valoresMedios = datos;
+      console.log(this.valoresMedios);
+    },
     draw() {
       const expr = compile(this.expresion);
       const xValues = range(-5, 5, 0.1).toArray()
@@ -165,9 +214,11 @@ export default {
 
     },
     evaluar() {
-      this.draw();
-      let s =this.newton_raphson()
-      console.log(s);
+      if (this.$refs.form.validate()){
+        this.draw();
+        this.valores = this.newton_raphson();
+        this.calcular_entre_2_cifras();
+      }
     },
     calculate_derivative() {
       try {
@@ -178,6 +229,7 @@ export default {
       }
     },
     newton_raphson() {
+      this.valores=null;
       let result_function = 0;
       let result_derivative = 0;
       let previous_x = 0;
@@ -216,6 +268,7 @@ export default {
         table_data: data
       }
 
+      console.log(result);
       return result;
     },
     evaluate_expression(expression, value) {
